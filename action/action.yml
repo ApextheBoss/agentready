@@ -1,0 +1,64 @@
+name: 'AgentReady Score'
+description: 'Check if your website is ready for AI agents. Scores llms.txt, robots.txt, content negotiation, and more.'
+author: 'ApextheBoss'
+branding:
+  icon: 'shield'
+  color: 'orange'
+
+inputs:
+  url:
+    description: 'URL to scan (e.g., https://example.com)'
+    required: true
+  threshold:
+    description: 'Minimum score to pass (0-100). Action fails if score is below this.'
+    required: false
+    default: '0'
+  format:
+    description: 'Output format: text, json, or markdown'
+    required: false
+    default: 'markdown'
+
+outputs:
+  score:
+    description: 'Overall agent-readiness score (0-100)'
+  grade:
+    description: 'Letter grade (A-F)'
+  report:
+    description: 'Full scan report'
+  passed:
+    description: 'Whether the score meets the threshold (true/false)'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install httpx
+
+    - name: Run AgentReady scan
+      id: scan
+      shell: bash
+      env:
+        SCAN_URL: ${{ inputs.url }}
+        THRESHOLD: ${{ inputs.threshold }}
+        FORMAT: ${{ inputs.format }}
+      run: python ${{ github.action_path }}/scan.py
+
+    - name: Post results as PR comment
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('/tmp/agentready-report.md', 'utf8');
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: report
+          });
