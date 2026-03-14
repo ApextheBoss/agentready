@@ -1,0 +1,102 @@
+[
+  {
+    "url": "https://stripe.com",
+    "score": 56,
+    "grade": "D"
+  },
+  {
+    "url": "https://shopify.com",
+    "score": 50,
+    "grade": "D"
+  },
+  {
+    "url": "https://vercel.com",
+    "score": 53,
+    "grade": "D"
+  },
+  {
+    "url": "https://supabase.com",
+    "score": 42,
+    "grade": "D"
+  },
+  {
+    "url": "https://linear.app",
+    "score": 64,
+    "grade": "C"
+  },
+  {
+    "url": "https://notion.so",
+    "score": 34,
+    "grade": "F"
+  },
+  {
+    "url": "https://figma.com",
+    "score": 31,
+    "grade": "F"
+  },
+  {
+    "url": "https://github.com",
+    "score": 42,
+    "grade": "D"
+  },
+  {
+    "url": "https://cloudflare.com",
+    "score": 42,
+    "grade": "D"
+  },
+  {
+    "url": "https://fly.io",
+    "score": 22,
+    "grade": "F"
+  },
+  {
+    "url": "https://railway.app",
+    "score": 56,
+    "grade": "D"
+  },
+  {
+    "url": "https://replit.com",
+    "score": 48,
+    "grade": "D"
+  },
+  {
+    "url": "https://huggingface.co",
+    "score": 26,
+    "grade": "F"
+  },
+  {
+    "url": "https://stability.ai",
+    "score": 33,
+    "grade": "F"
+  },
+  {
+    "url": "https://midjourney.com",
+    "score": 17,
+    "grade": "F"
+  },
+  {
+    "url": "https://eleven-labs.com",
+    "score": 50,
+    "grade": "D"
+  },
+  {
+    "url": "https://cal.com",
+    "score": 53,
+    "grade": "D"
+  },
+  {
+    "url": "https://posthog.com",
+    "score": 42,
+    "grade": "D"
+  },
+  {
+    "url": "https://dub.co",
+    "score": 58,
+    "grade": "D"
+  },
+  {
+    "url": "https://resend.com",
+    "score": 56,
+    "grade": "D"
+  }
+]
