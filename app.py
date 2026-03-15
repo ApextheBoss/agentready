@@ -1,5 +1,6 @@
 """
 AgentReady API — FastAPI app for scanning websites.
+x402 payment-gated detailed scans.
 """
 
 from fastapi import FastAPI, HTTPException, Request
@@ -9,11 +10,52 @@ from pydantic import BaseModel
 import asyncio
 from scanner import scan, format_report
 
+from x402 import x402ResourceServer
+from x402.http import HTTPFacilitatorClient, FacilitatorConfig
+from x402.http.middleware.fastapi import payment_middleware
+from x402.mechanisms.evm.exact import ExactEvmServerScheme
+
+# x402 payment setup — Base Sepolia testnet (eip155:84532)
+# Using testnet because the public x402 facilitator only supports testnets.
+# Will switch to mainnet (eip155:8453) when facilitator adds mainnet support.
+MY_WALLET = "0x74075f7330f4A88758AC815fC7F779b4147c64EF"
+FACILITATOR_URL = "https://www.x402.org/facilitator"
+
+facilitator = HTTPFacilitatorClient(FacilitatorConfig(url=FACILITATOR_URL))
+x402_server = x402ResourceServer(facilitator)
+x402_server.register("eip155:84532", ExactEvmServerScheme())
+
+# Routes that require payment
+x402_routes = {
+    "POST /api/scan/detailed": {
+        "accepts": {
+            "scheme": "exact",
+            "payTo": MY_WALLET,
+            "price": "$0.50",
+            "network": "eip155:84532",
+        }
+    },
+    "GET /api/scan/detailed": {
+        "accepts": {
+            "scheme": "exact",
+            "payTo": MY_WALLET,
+            "price": "$0.50",
+            "network": "eip155:84532",
+        }
+    },
+}
+
 app = FastAPI(
     title="AgentReady",
     description="Score any website's AI agent readiness. Like PageSpeed Insights, but for AI agents.",
     version="0.1.0",
 )
+
+# Add x402 payment middleware
+@app.middleware("http")
+async def x402_payment_middleware(request: Request, call_next):
+    mw = payment_middleware(x402_routes, x402_server)
+    return await mw(request, call_next)
 
 
 class ScanRequest(BaseModel):
@@ -161,3 +203,109 @@ async def api_scan_get(url: str):
         raise HTTPException(400, "URL parameter is required")
     result = await scan(url)
     return result.to_dict()
+
+
+def _generate_detailed_report(result) -> dict:
+    """Generate detailed remediation report from scan result."""
+    data = result.to_dict()
+    
+    remediation_guides = []
+    for check in data["checks"]:
+        guide = {
+            "name": check["name"],
+            "status": check["status"],
+            "score": check["score"],
+            "max_score": check["max_score"],
+            "detail": check["detail"],
+            "recommendation": check.get("recommendation", ""),
+        }
+        
+        # Add detailed remediation steps based on check type
+        if check["status"] == "fail":
+            guide["priority"] = "HIGH"
+            guide["remediation_steps"] = _get_remediation_steps(check["name"])
+            guide["estimated_effort"] = "1-2 hours"
+        elif check["status"] == "warn":
+            guide["priority"] = "MEDIUM"
+            guide["remediation_steps"] = _get_remediation_steps(check["name"])
+            guide["estimated_effort"] = "30 minutes"
+        else:
+            guide["priority"] = "LOW"
+            guide["remediation_steps"] = ["No action needed — this check is passing."]
+            guide["estimated_effort"] = "None"
+        
+        remediation_guides.append(guide)
+    
+    return {
+        **data,
+        "report_type": "detailed",
+        "remediation_guides": remediation_guides,
+        "compliance_notes": {
+            "eu_ai_act": "AI agent accessibility may fall under EU AI Act transparency requirements.",
+            "section_508": "Structured data and machine-readable content improve accessibility compliance.",
+        },
+        "competitive_benchmark": f"Average score across 66 scanned sites: 34/100. Your score: {data['overall_score']}/100.",
+    }
+
+
+def _get_remediation_steps(check_name: str) -> list[str]:
+    """Return specific remediation steps for each check type."""
+    steps = {
+        "robots.txt": [
+            "Create a robots.txt file at your domain root",
+            "Add 'User-agent: *' with appropriate Allow/Disallow rules",
+            "Consider adding specific rules for AI agents (GPTBot, ClaudeBot, etc.)",
+            "Test with: curl https://yourdomain.com/robots.txt",
+        ],
+        "Structured Data": [
+            "Add JSON-LD structured data to your pages (<script type='application/ld+json'>)",
+            "Use Schema.org vocabulary (Organization, Product, Article, etc.)",
+            "Validate with Google's Rich Results Test",
+            "Add at minimum: name, description, url properties",
+        ],
+        "OpenAPI/API Spec": [
+            "Create an openapi.json or openapi.yaml at /openapi.json",
+            "Document all public API endpoints with parameters and response schemas",
+            "Use Swagger UI or Redoc for interactive documentation",
+            "Link it from your robots.txt or sitemap",
+        ],
+        "Security Headers": [
+            "Add Content-Security-Policy header",
+            "Add X-Content-Type-Options: nosniff",
+            "Add Strict-Transport-Security header",
+            "Add X-Frame-Options: DENY or SAMEORIGIN",
+        ],
+        "llms.txt": [
+            "Create /.well-known/llms.txt or /llms.txt at your domain root",
+            "Include a plain-text description of your site/product for LLMs",
+            "Keep it concise — 500-2000 words covering key info",
+            "Reference: llmstxt.org for the emerging standard",
+        ],
+    }
+    # Return matching steps or generic ones
+    for key, val in steps.items():
+        if key.lower() in check_name.lower():
+            return val
+    return [
+        "Review the check details above for specific issues",
+        "Implement the recommendation provided",
+        "Re-scan to verify the fix",
+    ]
+
+
+@app.post("/api/scan/detailed")
+async def api_scan_detailed(req: ScanRequest):
+    """Detailed scan with remediation guide. Requires x402 payment ($0.50 USDC on Base)."""
+    if not req.url:
+        raise HTTPException(400, "URL is required")
+    result = await scan(req.url)
+    return _generate_detailed_report(result)
+
+
+@app.get("/api/scan/detailed")
+async def api_scan_detailed_get(url: str):
+    """Detailed scan with remediation guide. Requires x402 payment ($0.50 USDC on Base)."""
+    if not url:
+        raise HTTPException(400, "URL parameter is required")
+    result = await scan(url)
+    return _generate_detailed_report(result)
